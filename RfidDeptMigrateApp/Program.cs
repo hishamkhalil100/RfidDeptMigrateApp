@@ -18,7 +18,7 @@ namespace RfidDeptMigrateApp
         static StreamWriter sw = new StreamWriter(path);
         static void Main(string[] args)
         {
-            new Program().ASD();
+            new Program().printDemarcText();
         }
 
         private void printDemarcText()
@@ -30,108 +30,118 @@ namespace RfidDeptMigrateApp
                 // drop BasicEmpData
                 //fill BasicEmpData3 
 
-                OdbcCommand commandItem = new OdbcCommand(@"select bib# , text from bib_trans_02_07_2019", con1);
+                OdbcCommand commandItem0 = new OdbcCommand(@"select  distinct bib# , create_date from DepositedBibs_19_21 where create_date between 17897 and 18261 ", con1);
                 // processed like '%السعوديه%'
                 // command.Parameters.AddWithValue();
-                DataSet resultsItem = new DataSet();
-                OdbcDataAdapter usersAdapterItem = new OdbcDataAdapter(commandItem);
-                usersAdapterItem.Fill(resultsItem);
-                DataTable dtItem = resultsItem.Tables[0];
+                DataSet resultsItem0 = new DataSet();
+                OdbcDataAdapter usersAdapterItem0 = new OdbcDataAdapter(commandItem0);
+                usersAdapterItem0.Fill(resultsItem0);
+                DataTable dtItem0 = resultsItem0.Tables[0];
 
                 Encoding ansiEncoding = Encoding.GetEncoding(1256);
 
-                foreach (DataRow rowItem in dtItem.Rows)
+                foreach (DataRow rowItem0 in dtItem0.Rows)
                 {
-
-                    OdbcCommand commandItem2 = new OdbcCommand(@"select bib#, text from bib where tag = '260' and bib# =? ", con1);
-                    commandItem2.Parameters.Add(new OdbcParameter("@bib#", int.Parse(rowItem["bib#"].ToString())));
+                    OdbcCommand commandItem = new OdbcCommand(@"select bib# ,tag, text,cat_link_xref# from bib where bib# =?", con1);
+                    commandItem.Parameters.Add(new OdbcParameter("@bib#", int.Parse(rowItem0["bib#"].ToString())));
                     // processed like '%السعوديه%'
                     // command.Parameters.AddWithValue();
-                    DataSet resultsItem2 = new DataSet();
-                    OdbcDataAdapter usersAdapterItem2 = new OdbcDataAdapter(commandItem2);
-                    usersAdapterItem2.Fill(resultsItem2);
-                    DataTable dtItem2 = resultsItem2.Tables[0];
-                    foreach (DataRow rowItem2 in dtItem2.Rows)
+                    DataSet resultsItem = new DataSet();
+                    OdbcDataAdapter usersAdapterItem = new OdbcDataAdapter(commandItem);
+                    usersAdapterItem.Fill(resultsItem);
+                    DataTable dtItem = resultsItem.Tables[0];
+
+
+                    string deptNo = "";//
+                    string author = "";//
+                    string title = "";//
+                    string pub1 = "";//
+                    string city1 = "";//
+                    string pub2 = "";//
+                    string city2 = "";
+                    string hDate = "";//
+                    string gDate = "";//
+                    string callNo = "";//
+                    string depADate = new DateTime(1970, 1, 1).AddDays(long.Parse(rowItem0["create_date"].ToString())).ToString("yyyy/MM/dd");
+                    List<string> subjects = new List<string>();
+
+                    foreach (DataRow rowItem in dtItem.Rows)
                     {
-                        string title = "";
-                        string pub1 = "";
-                        string city1 = "";
-                        string pub2 = "";
-                        string city2 = "";
-                        string hDate = "";
-                        string gDate = "";
 
 
 
-                        if (getRequredTag(rowItem["text"].ToString(), 'a').Count >= 1)
+                        //title
+                        if (rowItem["tag"].Equals("245"))
                         {
-                            title = getRequredTag(rowItem["text"].ToString(), 'a')[0];
+                            title = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'a').FirstOrDefault<string>().RemoveSubFeildLitter();
+                            if (string.IsNullOrEmpty(title))
+                                title = GetTitleFromTitleTable(int.Parse(rowItem0["bib#"].ToString()));
+                        }
+                        if (rowItem["tag"].Equals("100"))
+                        {
+                            if (!string.IsNullOrEmpty(rowItem["cat_link_xref#"].ToString()))
+                                author = GetTextFromAuthTable(int.Parse(rowItem["cat_link_xref#"].ToString().CleanEncryptedText()), "100", 'a').FirstOrDefault<string>().RemoveSubFeildLitter();
+                            else
+                                author = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'a').FirstOrDefault<string>().RemoveSubFeildLitter();
+                        }
+                        //deptNo
+                        if (rowItem["tag"].Equals("017"))
+                        {
+                            deptNo = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'a').FirstOrDefault<string>().RemoveSubFeildLitter();
+                        }
+                        //City
+                        if (rowItem["tag"].ToString().Equals("260"))
+                        {
+                            city1 = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'a').FirstOrDefault<string>().RemoveSubFeildLitter();
+                            if (getRequredTag(rowItem["text"].ToString(), 'b').Count > 1)
+                            {
+                                pub1 = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'b')[0].RemoveSubFeildLitter();
+                                pub2 = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'b')[1].RemoveSubFeildLitter();
+                            }
+                            else
+                            {
+                                pub1 = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'b').FirstOrDefault<string>().RemoveSubFeildLitter();
+                            }
+                            hDate = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'c').FirstOrDefault<string>().RemoveSubFeildLitter();
+                            gDate = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'm').FirstOrDefault<string>().RemoveSubFeildLitter();
+
                         }
 
-                        if (getRequredTag(rowItem2["text"].ToString(), 'a').Count >= 1)
+                        if (rowItem["tag"].ToString().Equals("082"))
                         {
-                            pub1 = getRequredTag(rowItem2["text"].ToString(), 'a')[0];
+                            callNo = getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'a').FirstOrDefault<string>().RemoveSubFeildLitter();
+                        }
+                        // subjects
+                        if (rowItem["tag"].ToString().Equals("650"))
+                        {
+                            if (!string.IsNullOrEmpty(rowItem["cat_link_xref#"].ToString()))
+                                subjects.Add(GetTextFromAuthTable(int.Parse(rowItem["cat_link_xref#"].ToString().CleanEncryptedText()), "150", 'a').FirstOrDefault<string>());
+                            else
+                                subjects.Add(getRequredTag(rowItem["text"].ToString().CleanEncryptedText(), 'a').FirstOrDefault<string>().RemoveSubFeildLitter());
                         }
 
-                        if (getRequredTag(rowItem2["text"].ToString(), 'b').Count >= 1)
-                        {
-                            city1 = getRequredTag(rowItem2["text"].ToString(), 'b')[0];
-                        }
 
-                        if (getRequredTag(rowItem2["text"].ToString(), 'a').Count >= 2)
-                        {
-                            pub2 = getRequredTag(rowItem2["text"].ToString(), 'a')[1];
-                        }
-
-                        if (getRequredTag(rowItem2["text"].ToString(), 'b').Count >= 2)
-                        {
-                            city2 = getRequredTag(rowItem2["text"].ToString(), 'b')[1];
-                        }
-
-                        if (getRequredTag(rowItem2["text"].ToString(), 'c').Count >= 1)
-                        {
-                            hDate = getRequredTag(rowItem2["text"].ToString(), 'c')[0];
-                        }
-
-                        if (getRequredTag(rowItem2["text"].ToString(), 'm').Count >= 1)
-                        {
-                            gDate = getRequredTag(rowItem2["text"].ToString(), 'm')[0];
-                        }
-                        OdbcCommand commandItem3 = new OdbcCommand(@"insert into bib_trans_02_07_2019_ord (bib#, gdate, hdate) values(?,?,?) ", con1);
-                        commandItem3.Parameters.Add(new OdbcParameter("@bib#", int.Parse(rowItem["bib#"].ToString())));
-                        if (gDate.Length > 4)
-                        {
-                            commandItem3.Parameters.Add(new OdbcParameter("@bib#", dateReplace(gDate)));
-                        }
-                        else
-                        {
-                            commandItem3.Parameters.Add(new OdbcParameter("@bib#", ""));
-                        }
-                        if (hDate.Length > 4)
-                        {
-                            commandItem3.Parameters.Add(new OdbcParameter("@bib#", dateReplace(hDate)));
-                        }
-                        else
-                        {
-                            commandItem3.Parameters.Add(new OdbcParameter("@bib#", ""));
-                        }
-
-                        commandItem3.ExecuteNonQuery();
-
-                        sw.WriteLine(rowItem["bib#"].ToString() + "\t" +
-                            title + "\t" +
-                            pub1 + "\t" +
-                            city1 + "\t" +
-                            pub2 + "\t" +
-                            city2 + "\t" +
-                            hDate + "\t" +
-                            gDate);
-                        Console.WriteLine(rowItem["bib#"].ToString() + "\t" + getRequredTag(rowItem["text"].ToString(), 'a'));
                     }
+                    string subject = string.Empty;
+                    foreach (var sub in subjects)
+                    {
+                        subject += sub + ",";
+                    }
+                    sw.WriteLine(rowItem0["bib#"].ToString() + "\t" +
+                        deptNo + "\t" +
+                        title + "\t" +
+                        author + "\t" +
+                        pub1 + "\t" +
+                        city1 + "\t" +
+                        callNo + "\t" +
+                        hDate + "\t" +
+                        gDate + "\t" +
+                        depADate + "\t" +
+                        subject);
 
 
                 }
-                sw.Flush();
+
                 Console.ReadLine();
             }
             catch (Exception e)
@@ -143,6 +153,7 @@ namespace RfidDeptMigrateApp
             }
             finally
             {
+                sw.Flush();
                 con1.Close();
             }
         }
@@ -434,5 +445,62 @@ namespace RfidDeptMigrateApp
 
             return ansiEncoding.GetString(tempBytes.ToArray());
         }
+        public List<string> GetTextFromAuthTable(int authNo, string tag, char subTag)
+        {
+            OdbcCommand commandItem2 = new OdbcCommand(@"select auth#, text from auth where tag = ? and auth# =? ", con1);
+            commandItem2.Parameters.Add(new OdbcParameter("@tag", tag));
+            commandItem2.Parameters.Add(new OdbcParameter("@auth", authNo));
+            // processed like '%السعوديه%'
+            // command.Parameters.AddWithValue();
+            DataSet resultsItem2 = new DataSet();
+            OdbcDataAdapter usersAdapterItem2 = new OdbcDataAdapter(commandItem2);
+            usersAdapterItem2.Fill(resultsItem2);
+            DataTable dtItem2 = resultsItem2.Tables[0];
+            List<string> list = new List<string>();
+            foreach (DataRow rowItem2 in dtItem2.Rows)
+            {
+                list.Add(getRequredTag(rowItem2["text"].ToString(), subTag).FirstOrDefault<string>().RemoveSubFeildLitter());
+            }
+            return list;
+        }
+        public string GetTitleFromTitleTable(int bibNo)
+        {
+            OdbcCommand commandItem2 = new OdbcCommand(@"select processed from title where bib# = ?", con1);
+            commandItem2.Parameters.Add(new OdbcParameter("@bib#", bibNo));
+            // processed like '%السعوديه%'
+            // command.Parameters.AddWithValue();
+            DataSet resultsItem2 = new DataSet();
+            OdbcDataAdapter usersAdapterItem2 = new OdbcDataAdapter(commandItem2);
+            usersAdapterItem2.Fill(resultsItem2);
+            DataTable dtItem2 = resultsItem2.Tables[0];
+            List<string> list = new List<string>();
+            foreach (DataRow rowItem2 in dtItem2.Rows)
+            {
+                return rowItem2["processed"].ToString();
+            }
+            return "";
+        }
+
     }
+
+
+    public static class ExtensionMethods
+    {
+        public static string RemoveSubFeildLitter(this string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return "";
+
+            return text.Remove(0, 1).Replace("", string.Empty);
+        }
+        public static string CleanEncryptedText(this string text)
+        {
+            char newLine = (char)10;
+            if (string.IsNullOrEmpty(text))
+                return "";
+
+            return text.Replace("\r\n", string.Empty).Replace("\r", string.Empty);
+        }
+    }
+
 }
